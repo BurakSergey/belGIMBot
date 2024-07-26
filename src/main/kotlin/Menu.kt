@@ -1,7 +1,4 @@
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.dataButton
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.inlineKeyboard
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.replyKeyboard
-import dev.inmo.tgbotapi.extensions.utils.types.buttons.urlButton
+import dev.inmo.tgbotapi.extensions.utils.types.buttons.*
 import dev.inmo.tgbotapi.types.buttons.SimpleKeyboardButton
 import dev.inmo.tgbotapi.utils.row
 import io.ktor.server.util.*
@@ -23,6 +20,19 @@ class Menu {
                 dataButton("Вернуться в Главное меню", "menu")
             }
         }
+
+        val adminMenu = inlineKeyboard {
+            row {
+                dataButton("Просмотреть все сообщения", "user_messages")
+            }
+            row {
+                dataButton("Ответить пользователю на сообщения", "answer")
+            }
+            row {
+                dataButton("Вернуться в главное меню", "menu")
+            }
+        }
+
         val siteMenu = inlineKeyboard {
             row {
                 urlButton("Главная страница","https://belgim.by/")
@@ -33,7 +43,7 @@ class Menu {
             }
 
             row {
-                urlButton("Контакты", "https://belgim.by/pages/view?id=123")
+                webAppButton("Контакты", "https://belgim.by/pages/view?id=123")
             }
 
             row {
@@ -67,8 +77,12 @@ class Menu {
 //            row {
 //                dataButton("Количество клиентов в БелГИМ","queue")
 //            }
+
             row {
                 dataButton("Схемы проезда к объектам БелГИМ", "route")
+            }
+            row {
+                dataButton("Задать вопрос","question")
             }
         }
         val backToMainMenu = inlineKeyboard {
