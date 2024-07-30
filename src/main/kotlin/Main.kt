@@ -1,10 +1,13 @@
+import by.belgim.DatabaseFactory
+import by.belgim.MessagesDao
+import by.belgim.MessagesDaoImpl
+import by.belgim.UserMessage
 import com.google.gson.Gson
 import dev.inmo.micro_utils.common.MPPFile
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
 import dev.inmo.tgbotapi.extensions.api.bot.getMe
 import dev.inmo.tgbotapi.extensions.api.bot.setMyCommands
 import dev.inmo.tgbotapi.extensions.api.send.media.sendPhoto
-import dev.inmo.tgbotapi.extensions.api.send.reply
 import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.api.send.sendTextMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
@@ -44,6 +47,8 @@ val user_messages: MutableMap<String, TextMessage?> = mutableMapOf()
 
 @OptIn(RiskFeature::class)
 suspend fun main() {
+    DatabaseFactory.init()
+    val dao : MessagesDao = MessagesDaoImpl()
     val token = "7110904292:AAH2hztvv6yArldmlZJISjf0p_a1wvSR1p0"
     val bot = telegramBot(token)
 
@@ -63,17 +68,17 @@ suspend fun main() {
 
         onDataCallbackQuery("answer") {
             stateList[it.from.id.toString()] = State.InputAnswer
-            val idClient = waitTextMessage(
-                SendTextMessage(it.from.id, "Введите id клиента, которому хотите ответить:")
+            val idMessage = waitTextMessage(
+                SendTextMessage(it.from.id, "Введите № сообщения, на которое хотите ответить:")
             ).filter { item ->
                 item.sameChat(it.from.id) && stateList[it.from.id.toString()] == State.InputAnswer
             }.first().text
 
-            if( stateList[it.from.id.toString()] != State.InputAnswer) {
+            if( stateList[it.from.id.toString()] != State.InputAnswer && idMessage?.toInt() == 0) {
                 return@onDataCallbackQuery
             }
 
-            val message: TextMessage = waitTextMessage(
+            val questionAnswer: TextMessage = waitTextMessage(
                 SendTextMessage(it.from.id, "Введите текст сообщения для клиента:")
             ).filter { item ->
                 item.sameChat(it.from.id)
@@ -82,15 +87,19 @@ suspend fun main() {
             if( stateList[it.from.id.toString()] != State.InputAnswer) {
                 return@onDataCallbackQuery
             }
+            val userMessage = dao.getMessage(idMessage?.toInt() ?: 0)
 
-            if (user_messages["ChatId(chatId=$idClient)"] == null) {
-                bot.sendTextMessage(it.from.id, "Ваш вопрос не найден, попробуйте задать его ещё раз")
-                bot.sendTextMessage(it.from.id, "Главное меню", replyMarkup = Menu.mainMenu)
+            if (userMessage == null || questionAnswer.text.isNullOrEmpty()) {
+                bot.sendTextMessage(it.from.id, "Вопрос не найден или Вы не ввели ответ, попробуйте найти его ещё раз")
+                bot.sendTextMessage(it.from.id, "Главное меню", replyMarkup = Menu.adminMenu)
             } else {
-                val idToSend = ChatId(chatId = RawChatId(idClient?.toLong() ?: 0))
+                val idToSend = ChatId(chatId = RawChatId(userMessage.user_id.toLong()))
                 bot.sendTextMessage(idToSend, "Ответ на Ваш вопрос")
-                user_messages["ChatId(chatId=$idClient)"]?.let { question -> bot.reply(question, message) }
-                user_messages["ChatId(chatId=$idClient)"] = null
+                bot.sendTextMessage(idToSend, "Вы спрашивали:")
+                bot.sendTextMessage(idToSend, userMessage.message_text)
+                bot.sendTextMessage(idToSend, "Ответ:")
+                bot.sendTextMessage(idToSend, questionAnswer.text ?: "Ошибка")
+                dao.updateMessage(idMessage?.toInt() ?:0)
                 bot.sendTextMessage(idToSend, "Всегда рады Вам помочь!")
                 bot.sendTextMessage(it.from.id, "Добро пожаловать в систему управления", replyMarkup = Menu.adminMenu)
             }
@@ -114,12 +123,11 @@ suspend fun main() {
         }
 
         onDataCallbackQuery("user_messages") {
+            val listUserMessages = dao.getAllMessages().filter { message -> !message.get_answer }
             var counterMessages = 0
-            for ((k, v) in user_messages) {
-                if (v != null) {
-                    bot.sendTextMessage(it.from.id, "$k: ${v.text}")
-                    counterMessages++
-                }
+            for (message in listUserMessages) {
+                bot.sendTextMessage(it.from.id, "[${message.created_at}]\n№ сообщения <<${message.message_id}>> от пользователя ID=${message.user_id}:\n${message.message_text}")
+                counterMessages++
             }
             if (counterMessages == 0) {
                 bot.sendTextMessage(it.from.id, "Сообщений нет", replyMarkup = Menu.backToMainMenu)
@@ -141,16 +149,23 @@ suspend fun main() {
             ).filter { item ->
                 item.sameChat(it.from.id) && stateList[it.from.id.toString()] == State.InputQuestion
             }.first()
-
+            println(user_messages[it.from.id.toString()])
             if (stateList[it.from.id.toString()] != State.InputQuestion) {
                 user_messages[it.from.id.toString()] = null
                 return@onDataCallbackQuery
             }
+            val userID = it.from.id.toString().substring(14, it.from.id.toString().length -1)
+            println("Сообщение от пользователя ${it.from.firstName} ${it.from.lastName}  чат-ID $userID): ${user_messages[it.from.id.toString()]?.text} \n")
+            try {
+                val addedMessage  = dao.addMessageToDB(UserMessage(message_id = 0, message_text = user_messages[it.from.id.toString()]?.text ?: "Unknown", user_id = userID ))
+                 println("Сообщение с номером ${addedMessage?.message_id} сохранено в БД")
+            }catch (e : Exception) {
+                println(e.message)
+            } finally {
+                bot.sendTextMessage(it.from.id, "Ваше сообщение отправлено!")
+                bot.sendTextMessage(it.from.id, "Главное меню", replyMarkup = Menu.mainMenu)
+            }
 
-            println("Сообщение от пользователя ${it.from.firstName} ${it.from.lastName}  чат-ID ${it.from.id}): ${user_messages[it.from.id.toString()]?.text} \n")
-
-            bot.sendTextMessage(it.from.id, "Ваше сообщение отправлено!")
-            bot.sendTextMessage(it.from.id, "Главное меню", replyMarkup = Menu.mainMenu)
         }
 
         onDataCallbackQuery("check") {
