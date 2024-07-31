@@ -1,4 +1,3 @@
-import by.belgim.DatabaseFactory
 import by.belgim.MessagesDao
 import by.belgim.MessagesDaoImpl
 import by.belgim.UserMessage
@@ -38,19 +37,23 @@ import io.ktor.server.http.content.*
 import io.ktor.server.util.*
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import java.io.File
 
-const val pathPhoto = "D:\\Burak\\Projects\\BelGIMBot\\src\\main\\resources\\"
-const val ADMIN_PASSWORD = "v13"
 val users_orders: MutableMap<String, ClientInputData> = mutableMapOf()
 val stateList: MutableMap<String, State> = mutableMapOf()
 val user_messages: MutableMap<String, TextMessage?> = mutableMapOf()
 
 @OptIn(RiskFeature::class)
 suspend fun main() {
-    DatabaseFactory.init()
+
+    val filePath = "D:\\Burak\\Projects\\BelGIMBot\\src\\main\\settings.json"
+    val file = File(filePath)
+    val jsonString = file.readText()
+    val settings = Gson().fromJson(jsonString, Settings::class.java)
+
+    DatabaseFactory.init(settings.postgres)
     val dao : MessagesDao = MessagesDaoImpl()
-    val token = "7110904292:AAH2hztvv6yArldmlZJISjf0p_a1wvSR1p0"
-    val bot = telegramBot(token)
+    val bot = telegramBot(settings.token)
 
     bot.buildBehaviourWithLongPolling {
         println(getMe())
@@ -95,11 +98,9 @@ suspend fun main() {
             } else {
                 val idToSend = ChatId(chatId = RawChatId(userMessage.user_id.toLong()))
                 bot.sendTextMessage(idToSend, "Ответ на Ваш вопрос")
-                bot.sendTextMessage(idToSend, "Вы спрашивали:")
-                bot.sendTextMessage(idToSend, userMessage.message_text)
-                bot.sendTextMessage(idToSend, "Ответ:")
-                bot.sendTextMessage(idToSend, questionAnswer.text ?: "Ошибка")
-                dao.updateMessage(idMessage?.toInt() ?:0)
+                bot.sendTextMessage(idToSend, "Вы спрашивали: ${userMessage.message_text}")
+                bot.sendTextMessage(idToSend, "Ответ: ${questionAnswer.text ?: "Ошибка"}")
+                dao.updateMessage(idMessage?.toInt() ?:0, questionAnswer.text.toString())
                 bot.sendTextMessage(idToSend, "Всегда рады Вам помочь!")
                 bot.sendTextMessage(it.from.id, "Добро пожаловать в систему управления", replyMarkup = Menu.adminMenu)
             }
@@ -117,7 +118,7 @@ suspend fun main() {
                 return@onCommand
             }
 
-            if (message == ADMIN_PASSWORD) {
+            if (message == settings.adminPassword) {
                 bot.sendMessage(it.chat.id, "Добро пожаловать в систему управления", replyMarkup = Menu.adminMenu)
             }
         }
@@ -126,7 +127,7 @@ suspend fun main() {
             val listUserMessages = dao.getAllMessages().filter { message -> !message.get_answer }
             var counterMessages = 0
             for (message in listUserMessages) {
-                bot.sendTextMessage(it.from.id, "[${message.created_at}]\n№ сообщения <<${message.message_id}>> от пользователя ID=${message.user_id}:\n${message.message_text}")
+                bot.sendTextMessage(it.from.id, "[${message.created_at}]\nСообщение №${message.message_id} от пользователя ${message.username}:\n${message.message_text}")
                 counterMessages++
             }
             if (counterMessages == 0) {
@@ -157,7 +158,7 @@ suspend fun main() {
             val userID = it.from.id.toString().substring(14, it.from.id.toString().length -1)
             println("Сообщение от пользователя ${it.from.firstName} ${it.from.lastName}  чат-ID $userID): ${user_messages[it.from.id.toString()]?.text} \n")
             try {
-                val addedMessage  = dao.addMessageToDB(UserMessage(message_id = 0, message_text = user_messages[it.from.id.toString()]?.text ?: "Unknown", user_id = userID ))
+                val addedMessage  = dao.addMessageToDB(UserMessage(message_id = 0, message_text = user_messages[it.from.id.toString()]?.text ?: "Unknown", user_id = userID, username = "${it.from.firstName} ${it.from.lastName}" ))
                  println("Сообщение с номером ${addedMessage?.message_id} сохранено в БД")
             }catch (e : Exception) {
                 println(e.message)
@@ -260,7 +261,7 @@ suspend fun main() {
         }
 
         onDataCallbackQuery("MainRoute") {
-            val photoPath = "${pathPhoto}main_route.jpg"
+            val photoPath = "${settings.imagePath}main_route.jpg"
             bot.sendPhoto(it.from.id, InputFile.fromFile(MPPFile(photoPath)))
             bot.sendTextMessage(
                 it.from.id,
@@ -270,7 +271,7 @@ suspend fun main() {
         }
 
         onDataCallbackQuery("BPRoute") {
-            val photoPath = "${pathPhoto}bp_route.jpg"
+            val photoPath = "${settings.imagePath}bp_route.jpg"
             bot.sendPhoto(it.from.id, InputFile.fromFile(MPPFile(photoPath)))
             bot.sendTextMessage(
                 it.from.id,
@@ -280,7 +281,7 @@ suspend fun main() {
         }
 
         onDataCallbackQuery("SertRoute") {
-            val photoPath = "${pathPhoto}sert_route.jpg"
+            val photoPath = "${settings.imagePath}sert_route.jpg"
             bot.sendPhoto(it.from.id, InputFile.fromFile(MPPFile(photoPath)))
             bot.sendTextMessage(
                 it.from.id,

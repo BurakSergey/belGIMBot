@@ -1,6 +1,6 @@
 package by.belgim
 
-import by.belgim.DatabaseFactory.dbQuery
+import DatabaseFactory.dbQuery
 import org.jetbrains.exposed.sql.*
 
 class MessagesDaoImpl: MessagesDao {
@@ -12,8 +12,10 @@ class MessagesDaoImpl: MessagesDao {
         val insertStatement = UserMessages.insert {
             it[message_text] = userMessage.message_text
             it[user_id] = userMessage.user_id
+            it[username] = userMessage.username
             it[created_at] = userMessage.created_at
             it[get_answer] = userMessage.get_answer
+            it[answer] = userMessage.answer
         }
         insertStatement.resultedValues?.singleOrNull()?.let(::resultRowToUserMessages)
     }
@@ -26,9 +28,10 @@ class MessagesDaoImpl: MessagesDao {
             .singleOrNull()
     }
 
-    override suspend fun updateMessage(id: Int): Boolean = dbQuery {
+    override suspend fun updateMessage(id: Int, answer: String): Boolean = dbQuery {
         UserMessages.update( {UserMessages.message_id eq id}) {
             it[get_answer] = true
+            it[UserMessages.answer] = answer
         } > 0
     }
 
@@ -36,7 +39,9 @@ class MessagesDaoImpl: MessagesDao {
         message_id = row[UserMessages.message_id],
         message_text = row[UserMessages.message_text],
         user_id = row[UserMessages.user_id],
+        username = row[UserMessages.username],
         created_at = row[UserMessages.created_at],
-        get_answer = row[UserMessages.get_answer]
+        get_answer = row[UserMessages.get_answer],
+        answer = row[UserMessages.answer]
     )
 }

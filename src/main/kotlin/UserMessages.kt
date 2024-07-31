@@ -6,8 +6,10 @@ object UserMessages : Table("messages") {
     val message_id = integer("message_id").autoIncrement()
     val message_text = text("message_text")
     val user_id = varchar("user_id", 20)
+    val username = varchar("username", 100)
     val created_at = varchar("created_at",20)
     val get_answer = bool("get_answer")
+    val answer = text("answer")
 
     override val primaryKey = PrimaryKey(message_id)
 }

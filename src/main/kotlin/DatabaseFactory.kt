@@ -1,5 +1,4 @@
-package by.belgim
-
+import by.belgim.UserMessages
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -8,12 +7,12 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 
 object DatabaseFactory {
-    fun init() {
+    fun init(postgresParameters: PostgresParameters) {
        val database =  Database.connect(
-            url = "jdbc:postgresql://localhost:5432/belgim_bot",
+            url = "jdbc:postgresql:${postgresParameters.connectionString}",
             driver = "org.postgresql.Driver",
-            user = "postgres",
-            password = "postgres"
+            user = postgresParameters.user,
+            password = postgresParameters.password
         )
 
         transaction(database) {
