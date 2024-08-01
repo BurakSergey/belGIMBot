@@ -1,11 +1,11 @@
 {
-  "token": "7110904292:AAH2hztvv6yArldmlZJISjf0p_a1wvSR1p0",
-  "image_path": "D:\\Burak\\Projects\\BelGIMBot\\src\\main\\resources\\",
-  "admin_password": "v13",
+  "token": "YOUR TOKEN TG",
+  "image_path": "PATH_TO_RESOURCE",
+  "admin_password": "password",
   "postgres": {
-    "connection_string": "//localhost:5432/belgim_bot",
+    "connection_string": "//localhost:5432/db",
     "port": "5432",
-    "username": "postgres",
-    "password": "postgres"
+    "username": "USERNAME",
+    "password": "PASSWORD"
   }
 }
